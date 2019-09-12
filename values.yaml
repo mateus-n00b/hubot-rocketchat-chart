@@ -213,7 +213,7 @@ hubot:
                 });
         };
 
-      commom.coffee: |
+      script.coffee: |
         module.exports = (robot) ->
           response = false
           robot.respond /(olá|oi|bom dia|boa tarde|boa noite)/i, (msg) ->
