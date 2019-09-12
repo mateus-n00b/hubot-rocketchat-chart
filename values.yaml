@@ -1,0 +1,238 @@
+# Default values for hubot.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+image:
+  repository: rocketchat/hubot-rocketchat
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: NodePort
+  port: 80
+
+ingress:
+  enabled: false
+  annotations:
+    kubernetes.io/tls-acme: "true"
+    certmanager.k8s.io/cluster-issuer: letsencrypt-prod
+    kubernetes.io/ingress.class: nginx
+    downscaler/uptime: "Mon-Sun 07:30-23:30 America/Bahia"
+  path: /
+  hosts:
+    - hubot.local
+  tls:
+   - secretName: hubot-tls
+     hosts:
+       - hubot.local
+
+resources:
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after "resources:".
+  limits:
+   cpu: 100m
+   memory: 128Mi
+  requests:
+   cpu: 100m
+   memory: 128Mi
+
+nodeSelector:
+  preemptible: "true"
+tolerations:
+  - effect: NoSchedule
+    key: type
+    operator: Equal
+    value: preemptible
+
+affinity: {}
+
+hubot:
+  config:
+    # Test bot
+    # ROCKETCHAT_USER: tardis
+    # Prod bot
+    ROCKETCHAT_USER: johnny5
+    ROCKETCHAT_PASSWORD: NqBkji6c97Bf8KyzL
+    # test bot
+    # HUBOT_NAME: Tardis
+    # Prod bot
+    HUBOT_NAME: Johnny5
+    # test bot
+    # ROCKETCHAT_ROOM: ship-crew
+    # Prod-Bot
+    ROCKETCHAT_ROOM: ship-crew,suporte-ambiente-devops
+    RESPOND_TO_DM: "false"
+    ROCKETCHAT_URL: https://chat.solutis.digital
+    EXTERNAL_SCRIPTS: "hubot-rules"
+
+  scriptsFolder: /home/hubot/scripts
+
+  scripts:
+      commmands.js: |
+        var fs = require("fs");
+
+        module.exports = function (robot) {
+
+          robot.respond(/clean the house/, function (msg) {
+              msg.reply("Sure, where should I start? Kitchen or Bathroom");
+          });
+
+            const
+            listUrl = 'https://us-central1-solutis-ship.cloudfunctions.net/solutis_serverless_function?service=list',
+            uptimeUrl = 'https://us-central1-solutis-ship.cloudfunctions.net/solutis_serverless_function?service=setuptime&deploys=',
+            logsUrl = 'https://us-central1-solutis-ship.cloudfunctions.net/solutis_serverless_function?service=getlogs&deploys=',
+            horarioPadrao = 'https://us-central1-solutis-ship.cloudfunctions.net/solutis_serverless_function?service=setuptime&always=False',
+            eventosUrl = 'https://us-central1-solutis-ship.cloudfunctions.net/solutis_serverless_function?service=getevents&deploys=',
+            token = "token 8eb0c19109d86a8d9759652b089a3837dfd21e8a33c3da8b166dd0813a82da8b";
+
+           robot.hear(/listarServico/, (res) => {
+            //wrap the HTTP get call as a Promise
+            new Promise((resolve, reject) =>
+                  robot.http(listUrl)
+                  .header('Authorization', token)
+                  .get()
+                  ((err, response, body) =>
+                      err ? reject(err) : resolve(body)
+                  )
+              )
+
+              //parse to js object
+              .then(body => res.reply("Serviços disponíveis:\n" + body))
+
+              //problems? Annoy the user with the problem
+              .catch(err => res.reply('Erro: ' + err))
+              });
+
+          var svc ;
+          robot.hear(/deixarServicoLigadoEssaNoite (.*)/, (res) => {
+              svc = res.match[1];
+              res.reply("Aguarde, estou requisitando atualização para "+svc+" :clock1:... ")
+              new Promise((resolve, reject) =>
+                    robot.http(uptimeUrl+svc)
+                    .header('Authorization', token)
+                    .get()((err, response, body) =>
+                        err ? reject(err) : resolve(body)
+                    )
+                )
+
+                //parse to js object
+                .then(body => res.reply(body))
+
+                //problems? Annoy the user with the problem
+                .catch(err => res.reply('Erro: ' + err))
+                });
+
+          robot.hear(/visualizarEventos (.*)/, (res) => {
+          svc = res.match[1];
+          var path = "/tmp/temp.txt"
+          res.reply("Aguarde, solicitando eventos de "+svc+" :clock1:... ")
+          new Promise((resolve, reject) =>
+                robot.http(eventosUrl+svc)
+                .header('Authorization', token)
+                .get()((err, response, body) =>
+                    err ? reject(err) : resolve(body)
+                )
+            )
+
+            //parse to js object
+            .then(body =>
+            fs.writeFile(path, body, function(error) {
+                 if (error) {
+                   console.error("write error:  " + error.message);
+                 } else {
+                   console.log("Successful Write to " + path);
+                   var msg = {};
+
+                   msg.attachments = [
+                    {
+                      title: "Eventos",
+                      color: "#764FA5",
+                      filename: path,
+                      collapsed: true,
+                			text: body,
+                    }
+                   ]
+
+                   res.send(msg)
+                 }
+            }))
+
+            //problems? Annoy the user with the problem
+            .catch(err => res.reply('Erro: ' + err))
+            });
+
+          robot.hear(/visualizarLogs (.*)/, (res) => {
+              svc = res.match[1];
+              res.reply("Aguarde, estou requisitando logs de "+svc+" :clock1:... ")
+              new Promise((resolve, reject) =>
+                    robot.http(logsUrl+svc)
+                    .header('Authorization', token)
+                    .get()((err, response, body) =>
+                        err ? reject(err) : resolve(body)
+                    )
+                )
+
+                //parse to js object
+                .then(body => {
+                  msg = {};
+                  msg.attachments = [
+                   {
+                     title: "Logs",
+                     color: "#764FA5",
+                     collapsed: true,
+                     text: body,
+                   }
+                  ]
+
+                  res.send(msg) } )
+
+                //problems? Annoy the user with the problem
+                .catch(err => res.reply('Erro: ' + err))
+                });
+
+
+          robot.hear(/retornarServicoHorarioPadrao/, (res) => {
+              res.reply("Aguarde, estou requisitando atualização :clock1:... ")
+              new Promise((resolve, reject) =>
+                    robot.http(horarioPadrao)
+                    .header('Authorization', token)
+                    .get()((err, response, body) =>
+                        err ? reject(err) : resolve(body)
+                    )
+                )
+
+                //parse to js object
+                .then(body => res.reply(body))
+
+                //problems? Annoy the user with the problem
+                .catch(err => res.reply('Erro: ' + err))
+                });
+        };
+
+      commom.coffee: |
+        module.exports = (robot) ->
+          response = false
+          robot.respond /(olá|oi|bom dia|boa tarde|boa noite)/i, (msg) ->
+            room =  msg.envelope.user.name
+            msg.reply "Olá! Tudo bom?\n
+            Eu sou um bot feito para automatizar algumas tarefas relacionadas ao ambiente devops.\n"
+
+          robot.respond /ajuda|help/i, (msg) ->
+            msg.reply " **listarServicos** - retorna os serviços disponíveis no ambiente DevOps e horário de funcionamento.\n
+            **deixarServicoLigadoEssaNoite** <servico1>,<servico2>,...<servicoN> - o(s) serviço(s) fica(m) ligado(s) durante essa noite.\n
+            **retornarServicoHorarioPadrao** - todos os serviços disponíveis retornam para o horário padrão. .\n
+            **visualizarEventos** <meuDeploy1>,<meuDeploy2>,...<meuDeployN> - retorna os eventos de deployments com erro e não listados no graylog.\n
+            Isto é, geralmente quando há erros e o graylog não consegue recuperar os logs.\n
+            \n
+            PS: use os comandos com responsabilidade. Admin está vendo!"
+
+      health.coffee: |
+        # Description
+        #   A hubot script that exposes a health endpoint
+        # regex /(.*)/i o "i" pega tudo em maisculo ou minusculo
+        module.exports = (robot) ->
+          robot.router.get "/health", (req, res) -> res.status(200).end()
