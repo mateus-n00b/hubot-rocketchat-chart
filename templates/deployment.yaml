@@ -45,6 +45,9 @@ spec:
           volumeMounts:
             - name: {{ template "hubot.fullname" . }}-scripts
               mountPath: {{ .Values.hubot.scriptsFolder }}
+          envFrom:
+            - configMapRef:
+                name: {{ template "hubot.fullname" . }}
           resources:
 {{ toYaml .Values.resources | indent 12 }}
     {{- with .Values.nodeSelector }}
