@@ -55,8 +55,8 @@ hubot:
     # Test bot
     # ROCKETCHAT_USER: tardis
     # Prod bot
-    ROCKETCHAT_USER: johnny5
-    ROCKETCHAT_PASSWORD: NqBkji6c97Bf8KyzL
+    ROCKETCHAT_USER: 
+    ROCKETCHAT_PASSWORD: 
     # test bot
     # HUBOT_NAME: Tardis
     # Prod bot
@@ -64,9 +64,9 @@ hubot:
     # test bot
     # ROCKETCHAT_ROOM: ship-crew
     # Prod-Bot
-    ROCKETCHAT_ROOM: ship-crew,suporte-ambiente-devops
-    RESPOND_TO_DM: "false"
-    ROCKETCHAT_URL: https://chat.solutis.digital
+    ROCKETCHAT_ROOM: 
+    RESPOND_TO_DM: "true"
+    ROCKETCHAT_URL: 
     EXTERNAL_SCRIPTS: "hubot-rules"
 
   scriptsFolder: /home/hubot/scripts
